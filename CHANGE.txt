@@ -15,3 +15,8 @@ git submodule update --init
 
 20210128175431
 ./network/wgetping.sh
+
+20260129
+fs/duplicate
+programs/gallery
+
