@@ -1,0 +1,20 @@
+{
+    "name": "anovsiradj/topkit",
+    "type": "project",
+    "require": {
+        "php": "^7.4",
+        "symfony/var-dumper": "^5.4",
+        "fakerphp/faker": "^1.24",
+        "phpstan/phpstan": "^2.1",
+        "vimeo/psalm": "^5.26",
+        "filp/whoops": "^2.18",
+        "imagine/imagine": "^1.5"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "anovsiradj",
+            "email": "anov.siradj22@gmail.com"
+        }
+    ]
+}

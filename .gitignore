@@ -3,3 +3,6 @@
 
 # files
 /*.sublime-workspace
+
+
+/vendor/
