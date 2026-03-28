@@ -1,4 +1,8 @@
 <#
+version: 20260328
+author : anovsiradj
+source : https://copilot.microsoft.com/shares/CiDmc9pCLBUXWv6QLjVdD
+
 .SYNOPSIS
     Launch PHP built-in server with customizable host, port, PHP executable path, and extra arguments.
 
