@@ -12,6 +12,7 @@ A lightweight, self-contained gallery application for browsing images and videos
 ### Media Viewer
 - Supports images (PNG, JPG, JPEG, WEBP, GIF, BMP) and videos (MP4, WEBM, AVI, MOV, MKV)
 - Image zoom with drag-to-pan functionality when zoomed in
+- Image pan with arrow keys (up/down/left/right) when zoomed in
 - Rotation controls (90° increments)
 - Video playback with controls
 - **Video autoplay**: Videos automatically start playing when opened
@@ -21,6 +22,7 @@ A lightweight, self-contained gallery application for browsing images and videos
 - File info modal showing properties (name, type, size, date, labels)
 - Fullscreen slideshow with HTML5 Fullscreen API
 - Auto-play slideshow (3-second delay for images, continue after video ends)
+- Slideshow stops when any control except Play/Pause is clicked
 
 ### Labels System
 - **Flat labels** extracted from relative file paths
@@ -29,7 +31,7 @@ A lightweight, self-contained gallery application for browsing images and videos
 - labels sorted by file count (descending)
 - display type filter as badge with items count
 - display label filter as badge with items count
-- Interactive filtering - click tags to filter files
+- Interactive filtering - click tags to include, right-click to exclude
 
 ### Grid Layout
 - File cards showing thumbnail and filename
@@ -38,19 +40,21 @@ A lightweight, self-contained gallery application for browsing images and videos
 
 ### Filtering & Sorting
 - **Type filters**: All, type:image only, type:video only
-- **Label filters**: Multiple label selection (AND logic)
-- **Search**: File name search
-- **Sorting**: By name, type, size, created date, modified date
+- **Label filters**: Click to include, right-click to exclude
+- **Search**: File name search (in header)
+- **Sorting**: By name, type, size, created date, modified date with asc/desc direction
+- **Maintain filters**: After rename/delete, filters/sort/search are preserved
 
 ### Keyboard Shortcuts
-- `←/→` or `↑/↓` - Navigate between files in viewer
+- `←/→` - Navigate between files
+- `↑/↓` - Pan image up/down
 - `ESC` - Close media viewer
 - `F2` - Rename current file
 - `DEL` - Delete current file
-- `+`/`-` - Zoom in/out (images only)
+- `+`/`-` or scroll - Zoom in/out (images only)
 - `R` - Rotate image (90° clockwise)
 - `I` - Show file info
-- `?` - Toggle keyboard shortcuts hint
+- `?` - Open keyboard shortcuts modal
 - `Space` - Play/Pause slideshow
 - `F` - Toggle fullscreen mode
 
