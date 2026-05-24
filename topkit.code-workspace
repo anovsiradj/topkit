@@ -4,5 +4,12 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^cd c:\\\\topkit\\\\programs ; php -S 127\\.0\\.0\\.1:2205 gallery\\.php$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
 }
