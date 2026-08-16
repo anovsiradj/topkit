@@ -1,38 +1,33 @@
 <#
-version: 20260328
-author : anovsiradj
-source : https://copilot.microsoft.com/shares/CiDmc9pCLBUXWv6QLjVdD
-
 .SYNOPSIS
-    Launch PHP built-in server with customizable host, port, PHP executable path, and extra arguments.
+  Start PHP built-in server with customizable host, port, phpPath and phpArgs.
 
-.DESCRIPTION
-    Defaults:
-      webHost = 127.0.0.1
-      webPort = 5001
-      phpPath = "php" (assumes it's in PATH)
-      phpArgs = "" (no extra arguments)
-    If no arguments are provided, these defaults are used.
-    Extra arguments can be passed for document root (-t), custom ini (-c), etc.
+USAGE
+  See examples below for how to pass phpArgs safely.
+  - `C:\topkit\PHPServer.ps1 -phpArgs @('-t', '.\.agents\')`
+  - `C:\topkit\PHPServer.ps1 -phpArgs '-t', '.\.agents\'`
 #>
 
 param(
     [string]$webHost = "127.0.0.1",
     [int]$webPort = 5001,
     [string]$phpPath = "php",
-    [string]$phpArgs = ""
+    [string[]]$phpArgs = @()
 )
 
-# Show effective values
 Write-Host "Starting PHP server..."
 Write-Host "Host: $webHost"
 Write-Host "Port: $webPort"
 Write-Host "PHP Executable: $phpPath"
-if ($phpArgs -ne "") {
-    Write-Host "Extra arguments: $phpArgs"
-} else {
-    Write-Host "No extra arguments provided."
+if ($phpArgs.Count -gt 0) { Write-Host "phpArgs: $($phpArgs -join ' ')" } else { Write-Host "No extra phpArgs provided." }
+
+# If phpPath is a file path, ensure it exists
+if ($phpPath -ne "php" -and -not (Test-Path $phpPath)) {
+    Write-Error "PHP executable not found at: $phpPath"
+    exit 1
 }
 
-# Run PHP server as external process
-& $phpPath -S "${webHost}`:${webPort}" $phpArgs
+# Build argument array and run
+$arguments = @("-S", "$webHost`:$webPort") + $phpArgs
+Write-Host "Running: $phpPath $($arguments -join ' ')"
+& $phpPath @arguments
