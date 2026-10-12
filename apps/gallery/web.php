@@ -11,7 +11,7 @@
 	<!-- Bootstrap Icons v1 -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
-	<link rel="stylesheet" href="web.css">
+	<link rel="stylesheet" href="css/base.css">
 </head>
 
 <body>
@@ -311,9 +311,9 @@
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 	<!-- jQuery v4 -->
 	<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-	<script src="web.js"></script>
-	<script src="list.js"></script>
-	<script src="view.js"></script>
+	<script src="js/main.js"></script>
+	<script src="js/list.js"></script>
+	<script src="js/view.js"></script>
 </body>
 
 </html>

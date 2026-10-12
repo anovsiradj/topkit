@@ -1,6 +1,6 @@
 <?php
 // $argumentsEchoExit = true;
-$arguments = require __DIR__ . '/php/arguments.php';
+$arguments = require __DIR__ . '/../libs/php/arguments.php';
 $fileHasherAlgos ??= hash_algos();
 
 if (empty($arguments)) {

@@ -2,18 +2,18 @@
 
 /**
  * Local Server Gallery
- * 
+ *
  * Usage:
- * php --server 0.0.0.0:2205 /topkit/gallery.php
- * 
+ * php -S 0.0.0.0:2205 apps/gallery/index.php
+ *
  * Root folder must be specified via web interface using the root input field.
  * For debugging, defaults to D:\group if it exists.
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 
-// Serve static files from gallery directory
-$file = __DIR__ . '/gallery' . $_SERVER['SCRIPT_NAME'];
+// Serve static files from this directory (css/, js/)
+$file = __DIR__ . $_SERVER['SCRIPT_NAME'];
 if (is_file($file) && is_readable($file)) {
 	$mime = match (true) {
 		str_ends_with($file, '.html') => 'text/html',
@@ -50,6 +50,6 @@ if ($root === null) {
 
 $arguments['root'] = $root;
 
-require __DIR__ . '/gallery/api.php';
+require __DIR__ . '/api.php';
 
-require __DIR__ . '/gallery/web.php';
+require __DIR__ . '/web.php';

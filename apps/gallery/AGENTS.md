@@ -86,7 +86,7 @@ Deletes a file from the filesystem.
 
 ### Starting the Server
 ```bash
-php --server 0.0.0.0:2205 /topkit/gallery.php
+php -S 0.0.0.0:2205 apps/gallery/index.php
 ```
 
 ### Setting Root Folder
@@ -119,7 +119,7 @@ The root folder must be specified via the web interface:
 - PHP v7 or latest
 
 #### Usage:
-1. Start server: `php --server 0.0.0.0:2205 /topkit/gallery.php`
+1. Start server: `php -S 0.0.0.0:2205 apps/gallery/index.php`
 2. Open gallery in browser
 3. Enter directory path in root folder input field
 4. Click change button or press Enter
