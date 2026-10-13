@@ -3,9 +3,8 @@
 /vendor/
 
 # files
-/*.code*
-/*.sublime*
-
 /.agents/sessions.txt
 
+*.sublime-workspace
 *.tmp
+*.log
