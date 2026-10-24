@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 
+
 def run_cmd(cmd, cwd=None, allow_fail=False):
 	"""
 	Executes system commands reliably across platforms (Windows/Linux/Mac).
@@ -9,11 +10,12 @@ def run_cmd(cmd, cwd=None, allow_fail=False):
 	"""
 	print(f"Running: {' '.join(cmd)}")
 	result = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
-	
+
 	if result.returncode != 0 and not allow_fail:
 		print(f"Error: {result.stderr.strip()}")
 		raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
 	return result.stdout.strip()
+
 
 def print_usage():
 	"""
@@ -26,27 +28,41 @@ def print_usage():
 	print("  1. clone     Download a repository for the first time with minimum size.")
 	print("  2. update    Pull the latest app and submodule updates.")
 	print("  3. convert   Shrink an existing bloated local repository into a shallow one.")
-	
+
 	print("\nLOCAL MODIFICATION MODES:")
 	print("  --stash      [Default] Safely stashes local changes and restores them after.")
 	print("  --reset      Forcefully wipes out all local changes before updating.")
 	print("  --stash-reset STASH FIRST, THEN RESET. Backs up changes, then clears workspace.")
-	print("  --reset-stash RESET FIRST, THEN STASH. Clears workspace, then records a stash state.")
-	
-	print("\nMANUAL REMOTE & BRANCH ARGUMENTS (Optional):")
-	print("  You can append a custom remote and branch at the end of 'update' or 'convert'.")
-	print("  Format: python git_repo_lite.py <command> <dir> [--mode] [remote] [branch]")
-	
+	print("  --reset-stash RESET FIRST, THEN STASH. Clears workspace; nothing is restored.")
+
+	print("\nARGUMENT ORDER:")
+	print("  clone  : python git_repo_lite.py clone <url> <target_dir>")
+	print("  update : python git_repo_lite.py update <dir> [--mode] [remote] [branch]")
+	print("  convert: python git_repo_lite.py convert <dir> [--mode] [remote] [branch]")
+
 	print("\nUSAGE EXAMPLES:")
-	print("  👉 Update using auto-detected remote/branch and auto-stash:")
+	print("  👉 Clone shallowly:")
+	print("     python git_repo_lite.py clone https://github.com/user/repo.git ./repo")
+
+	print("\n  👉 Update using auto-detected remote/branch and auto-stash:")
 	print("     python git_repo_lite.py update .")
-	
+
 	print("\n  👉 Update with hard reset, manually specifying 'origin' and branch 'main':")
 	print("     python git_repo_lite.py update . --reset origin main")
-	
+
 	print("\n  👉 Convert a repo using a custom remote 'upstream' and branch 'dev':")
 	print("     python git_repo_lite.py convert . --stash upstream dev")
 	print("=" * 80)
+
+
+def is_git_repo(repo_dir):
+	"""Return True if repo_dir is a git working tree."""
+	try:
+		out = run_cmd(["git", "rev-parse", "--is-inside-work-tree"], cwd=repo_dir, allow_fail=True)
+		return out.strip() == "true"
+	except Exception:
+		return False
+
 
 def get_current_branch(repo_dir):
 	"""Determines the active local branch name safely."""
@@ -55,18 +71,19 @@ def get_current_branch(repo_dir):
 	except Exception:
 		return "master"
 
+
 def get_active_remote(repo_dir):
 	"""Dynamically gets the tracking remote name or falls back to 'origin'."""
 	try:
 		branch = get_current_branch(repo_dir)
-		tracking_remote = run_cmd(["git", "config", f"branch.{branch}.remote"], cwd=repo_dir)
+		tracking_remote = run_cmd(["git", "config", f"branch.{branch}.remote"], cwd=repo_dir, allow_fail=True)
 		if tracking_remote:
 			return tracking_remote
 	except Exception:
 		pass
 
 	try:
-		remotes = run_cmd(["git", "remote"], cwd=repo_dir).splitlines()
+		remotes = run_cmd(["git", "remote"], cwd=repo_dir, allow_fail=True).splitlines()
 		if remotes:
 			return remotes[0].strip()
 	except Exception:
@@ -74,10 +91,11 @@ def get_active_remote(repo_dir):
 
 	return "origin"
 
+
 def handle_local_changes(target_dir, mode, action_name):
 	"""Manages local modifications before Git operations based on the strict requested order."""
 	stashed = False
-	
+
 	if mode == "--stash-reset":
 		print(f"[{action_name}] Execution Order: STASH -> RESET")
 		stash_output = run_cmd(["git", "stash", "push", "-u", "-m", f"Auto-stash backup before Git Repo Lite {action_name}"], cwd=target_dir)
@@ -99,43 +117,64 @@ def handle_local_changes(target_dir, mode, action_name):
 		if mode == "--reset":
 			run_cmd(["git", "reset", "--hard", "HEAD"], cwd=target_dir)
 			run_cmd(["git", "clean", "-fd"], cwd=target_dir)
-		
+
 	return stashed
+
+
+def restore_stash(target_dir, action_name):
+	"""Restore a previously created stash. Returns True on success, False on conflict."""
+	print(f"[Git Repo Lite] Restoring your local modifications from stash...")
+	try:
+		run_cmd(["git", "stash", "pop"], cwd=target_dir)
+		return True
+	except subprocess.CalledProcessError:
+		print(f"[Git Repo Lite] ⚠️  Stash pop encountered conflicts during {action_name.lower()}.")
+		print("[Git Repo Lite] ⚠️  Your changes remain in the stash. Resolve conflicts, then run: git stash pop")
+		return False
+
 
 def clone_repo(repo_url, target_dir):
 	"""Performs a size-optimized initial shallow clone."""
 	print(f"[Git Repo Lite] Cloning {repo_url} into {target_dir} with minimum size profile...")
 	cmd = [
-		"git", "clone", 
-		"--depth", "1", 
-		"--single-branch", 
-		"--no-tags", 
-		"--recurse-submodules", 
-		"--shallow-submodules", 
-		repo_url, 
+		"git", "clone",
+		"--depth", "1",
+		"--single-branch",
+		"--no-tags",
+		"--recurse-submodules",
+		"--shallow-submodules",
+		repo_url,
 		target_dir
 	]
 	run_cmd(cmd)
 	run_cmd(["git", "gc", "--prune=now"], cwd=target_dir)
 	print("[Git Repo Lite] ✨ Success! Shallow clone completed.")
 
+
 def update_repo(target_dir, mode, manual_remote=None, manual_branch=None):
 	"""Updates the repository with dynamic or manual remote and branch configurations."""
+	if not is_git_repo(target_dir):
+		print(f"[Git Repo Lite] ❌ Error: '{target_dir}' is not a git repository.")
+		sys.exit(1)
+
 	remote = manual_remote if manual_remote else get_active_remote(target_dir)
 	branch = manual_branch if manual_branch else get_current_branch(target_dir)
-	
+
 	print(f"[Git Repo Lite] Updating repository in {target_dir}")
 	print(f"[Git Repo Lite] Target Config -> Remote: '{remote}', Branch: '{branch}', Mode: '{mode}'")
-	
+
 	stashed = handle_local_changes(target_dir, mode, "Update")
 
+	stash_restored = True
 	try:
-		# 1. Fetch specifically from the targeted remote and branch
-		run_cmd(["git", "fetch", "--depth", "1", remote, branch], cwd=target_dir)
-		
+		# 1. Fetch specifically from the targeted remote and branch, updating the
+		#    remote-tracking ref so 'remote/branch' points at the fetched tip.
+		run_cmd(["git", "fetch", "--depth", "1", remote,
+				f"+{branch}:refs/remotes/{remote}/{branch}"], cwd=target_dir)
+
 		# 2. Re-verify the target commit string to avoid divergence warnings
 		target_ref = f"{remote}/{branch}"
-		
+
 		# 3. Apply update strategies
 		if mode in ["--reset", "--stash-reset", "--reset-stash"]:
 			run_cmd(["git", "reset", "--hard", target_ref], cwd=target_dir)
@@ -146,47 +185,59 @@ def update_repo(target_dir, mode, manual_remote=None, manual_branch=None):
 				run_cmd(["git", "checkout", "-B", branch, target_ref], cwd=target_dir)
 			else:
 				run_cmd(["git", "merge", target_ref, "--ff-only"], cwd=target_dir)
-		
+
 		# 4. Sync child submodules
 		run_cmd(["git", "submodule", "update", "--init", "--recursive", "--depth", "1"], cwd=target_dir)
 		run_cmd(["git", "gc", "--prune=now"], cwd=target_dir)
-		
+
 	except Exception as e:
 		print(f"[Git Repo Lite] ❌ Error occurred: {e}. Attempting dynamic fallback...")
-		run_cmd(["git", "reset", "--hard", "FETCH_HEAD"], cwd=target_dir)
+		run_cmd(["git", "reset", "--hard", "FETCH_HEAD"], cwd=target_dir, allow_fail=True)
 	finally:
-		if stashed and mode == "--stash":
-			print("[Git Repo Lite] Restoring your local modifications from stash...")
-			run_cmd(["git", "stash", "pop"], cwd=target_dir, allow_fail=True)
-			
-	print("[Git Repo Lite] ✨ Success! Core application and submodules updated safely.")
+		if stashed:
+			stash_restored = restore_stash(target_dir, "Update")
+
+	if stashed and not stash_restored:
+		print("[Git Repo Lite] ⚠️  Update finished, but local stash restore had conflicts (see above).")
+	else:
+		print("[Git Repo Lite] ✨ Success! Core application and submodules updated safely.")
+
 
 def convert_existing(target_dir, mode, manual_remote=None, manual_branch=None):
 	"""In-place conversion of a deep-history repository with explicit branch targeting."""
+	if not is_git_repo(target_dir):
+		print(f"[Git Repo Lite] ❌ Error: '{target_dir}' is not a git repository.")
+		sys.exit(1)
+
 	remote = manual_remote if manual_remote else get_active_remote(target_dir)
 	branch = manual_branch if manual_branch else get_current_branch(target_dir)
-	
+
 	print(f"[Git Repo Lite] Converting deep repository in {target_dir}")
 	print(f"[Git Repo Lite] Target Config -> Remote: '{remote}', Branch: '{branch}', Mode: '{mode}'")
-	
+
 	run_cmd(["git", "config", f"remote.{remote}.tagOpt", "--no-tags"], cwd=target_dir)
 	stashed = handle_local_changes(target_dir, mode, "Conversion")
 
+	stash_restored = True
 	try:
-		run_cmd(["git", "fetch", "--depth", "1", remote, branch], cwd=target_dir)
+		run_cmd(["git", "fetch", "--depth", "1", remote,
+				f"+{branch}:refs/remotes/{remote}/{branch}"], cwd=target_dir)
 		target_ref = f"{remote}/{branch}"
-		
+
 		run_cmd(["git", "reset", "--hard", target_ref], cwd=target_dir)
 		run_cmd(["git", "submodule", "update", "--init", "--recursive", "--depth", "1"], cwd=target_dir)
-		
+
 		run_cmd(["git", "reflog", "expire", "--expire=now", "--all"], cwd=target_dir)
 		run_cmd(["git", "gc", "--prune=now", "--aggressive"], cwd=target_dir)
 	finally:
-		if stashed and mode == "--stash":
-			print("[Git Repo Lite] Restoring your local modifications from stash...")
-			run_cmd(["git", "stash", "pop"], cwd=target_dir, allow_fail=True)
-			
-	print("[Git Repo Lite] ✨ Success! Repository converted. Deep history blocks deleted.")
+		if stashed:
+			stash_restored = restore_stash(target_dir, "Conversion")
+
+	if stashed and not stash_restored:
+		print("[Git Repo Lite] ⚠️  Conversion finished, but local stash restore had conflicts (see above).")
+	else:
+		print("[Git Repo Lite] ✨ Success! Repository converted. Deep history blocks deleted.")
+
 
 if __name__ == "__main__":
 	if len(sys.argv) < 3:
@@ -195,7 +246,7 @@ if __name__ == "__main__":
 
 	action = sys.argv[1].lower()
 	target_path = sys.argv[2]
-	
+
 	allowed_modes = ["--stash", "--reset", "--stash-reset", "--reset-stash"]
 	mode = "--stash"
 	remote_arg = None
@@ -219,8 +270,8 @@ if __name__ == "__main__":
 
 	if action == "clone":
 		if len(sys.argv) < 4:
-			print("[Git Repo Lite] ❌ Error: Target directory is missing!")
-			print("Format: python git_repo_lite.py clone ")
+			print("[Git Repo Lite] ❌ Error: clone requires a repository URL and a target directory.")
+			print("Format: python git_repo_lite.py clone <url> <target_dir>")
 			sys.exit(1)
 		clone_repo(sys.argv[2], sys.argv[3])
 	elif action == "update":
