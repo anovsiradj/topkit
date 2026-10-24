@@ -1,6 +1,8 @@
 
 # dirs
 /vendor/
+/php_packages/
+/node_modules/
 
 # files
 /.agents/sessions.txt
