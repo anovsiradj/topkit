@@ -176,15 +176,14 @@ def update_repo(target_dir, mode, manual_remote=None, manual_branch=None):
 		target_ref = f"{remote}/{branch}"
 
 		# 3. Apply update strategies
-		if mode in ["--reset", "--stash-reset", "--reset-stash"]:
-			run_cmd(["git", "reset", "--hard", target_ref], cwd=target_dir)
+		#    Use reset --hard (not merge --ff-only) because shallow clones
+		#    often cannot verify fast-forward, causing spurious exit 128.
+		current_local = get_current_branch(target_dir)
+		if current_local.lower() != branch.lower():
+			print(f"[Git Repo Lite] Switching branch from '{current_local}' to '{branch}'...")
+			run_cmd(["git", "checkout", "-B", branch, target_ref], cwd=target_dir)
 		else:
-			current_local = get_current_branch(target_dir)
-			if current_local.lower() != branch.lower():
-				print(f"[Git Repo Lite] Switching branch from '{current_local}' to '{branch}'...")
-				run_cmd(["git", "checkout", "-B", branch, target_ref], cwd=target_dir)
-			else:
-				run_cmd(["git", "merge", target_ref, "--ff-only"], cwd=target_dir)
+			run_cmd(["git", "reset", "--hard", target_ref], cwd=target_dir)
 
 		# 4. Sync child submodules
 		run_cmd(["git", "submodule", "update", "--init", "--recursive", "--depth", "1"], cwd=target_dir)
