@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch and fix ath11k QCNFA765 5 GHz detection
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/topkit/devices/ath11k-5ghz-fix/ath11k-5ghz-fix fix
+User=root

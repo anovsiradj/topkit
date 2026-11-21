@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ath11k 5 GHz fix every 5 minutes
+Requires=ath11k-5ghz-fix.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

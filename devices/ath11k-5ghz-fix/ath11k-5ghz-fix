@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# ath11k-5ghz-fix
+# Fix intermittent "5 GHz not detected" on Qualcomm QCNFA765 / ath11k_pci.
+#
+# The QCNFA765 (WCN6855) firmware/driver periodically drops the 5 GHz band
+# (regulatory domain goes unset / power-save glitch), so 5 GHz SSIDs vanish
+# from nmcli scans until you toggle the hotspot or reboot.
+#
+# This script:
+#   1. Checks whether any 5 GHz SSID is visible.
+#   2. If none, reloads the ath11k_pci driver and restarts NetworkManager.
+#   3. Sets a 5 GHz-friendly regulatory domain and disables Wi-Fi power save.
+#
+# usage:
+#   chmod +x device/ath11k-5ghz-fix/ath11k-5ghz-fix
+#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix        # one-shot fix
+#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix --watch # loop until 5 GHz returns
+#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix status   # show current state
+#
+# optional systemd timer (run every 5 min):
+#   cp device/ath11k-5ghz-fix/ath11k-5ghz-fix.service /etc/systemd/system/
+#   cp device/ath11k-5ghz-fix/ath11k-5ghz-fix.timer /etc/systemd/system/
+#   systemctl enable --now ath11k-5ghz-fix.timer
+
+set -u
+
+IFACE="${WIFI_IFACE:-wlp1s0}"
+DRIVER="ath11k_pci"
+LOG="${WIFI_FIX_LOG:-/var/log/ath11k-5ghz-fix.log}"
+REGDOM="${WIFI_REGDOM:-US}"   # change to your country alpha-2, e.g. ID, GB, JP
+
+now() { date '+%Y-%m-%d %H:%M:%S'; }
+log() { echo "[$(now)] $*" | tee -a "$LOG" 2>/dev/null || echo "[$(now)] $*"; }
+
+have_5ghz() {
+    # nmcli is present on this system; fall back to scanning freq list.
+    if command -v nmcli >/dev/null 2>&1; then
+        nmcli -t -f FREQ device wifi list 2>/dev/null | awk -F: '$1 > 4900 {found=1} END{exit !found}'
+    else
+        iwlist "$IFACE" frequency 2>/dev/null | grep -qE '5[0-9]{3} MHz'
+    fi
+}
+
+reload_driver() {
+    log "5 GHz not visible - reloading $DRIVER and restarting NetworkManager"
+    systemctl stop NetworkManager 2>/dev/null
+    modprobe -r "$DRIVER" 2>/dev/null
+    modprobe -r ath11k 2>/dev/null
+    sleep 2
+    modprobe ath11k 2>/dev/null
+    modprobe "$DRIVER" 2>/dev/null
+    sleep 3
+    systemctl start NetworkManager 2>/dev/null
+    sleep 5
+}
+
+apply_tweaks() {
+    log "applying regulatory domain=$REGDOM and power-save=off on $IFACE"
+    # Set regulatory domain (5 GHz friendly). Needs iw/regulatory; best-effort.
+    if command -v iw >/dev/null 2>&1; then
+        iw reg set "$REGDOM" 2>/dev/null || true
+    fi
+    # Disable power save on the interface so the radio stays awake on 5 GHz.
+    if command -v iw >/dev/null 2>&1; then
+        iw dev "$IFACE" set power_save off 2>/dev/null || true
+    elif command -v iwconfig >/dev/null 2>&1; then
+        iwconfig "$IFACE" power off 2>/dev/null || true
+    fi
+    # nmcli connection-level power save off for the active connection.
+    if command -v nmcli >/dev/null 2>&1; then
+        ACTIVE=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
+                 | awk -F: -v dev="$IFACE" '$2==dev {print $1; exit}')
+        if [ -n "$ACTIVE" ]; then
+            nmcli connection modify "$ACTIVE" 802-11-wireless.powersave 2 2>/dev/null || true
+            nmcli connection up "$ACTIVE" 2>/dev/null || true
+        fi
+    fi
+}
+
+case "${1:-fix}" in
+    fix)
+        if have_5ghz; then
+            log "5 GHz is visible on $IFACE - nothing to do"
+            exit 0
+        fi
+        reload_driver
+        apply_tweaks
+        if have_5ghz; then
+            log "5 GHz restored on $IFACE"
+            exit 0
+        else
+            log "WARNING: 5 GHz still not visible after fix - may need reboot or firmware update"
+            exit 1
+        fi
+        ;;
+    watch)
+        log "watching $IFACE for 5 GHz (Ctrl-C to stop)"
+        while true; do
+            if ! have_5ghz; then
+                reload_driver
+                apply_tweaks
+            fi
+            sleep 60
+        done
+        ;;
+    status)
+        echo "interface: $IFACE"
+        echo "driver:    $DRIVER"
+        if have_5ghz; then echo "5 GHz:     visible"; else echo "5 GHz:     NOT visible"; fi
+
+        if command -v iw >/dev/null 2>&1; then
+            echo "regulatory (from iw reg get):"
+            iw reg get 2>/dev/null | while IFS= read -r line; do
+                echo "  $line"
+            done
+
+            # Detect self-managed phy and report the limitation.
+            SELF_MANAGED=$(iw reg get 2>/dev/null | grep -c "(self-managed)" || true)
+            PHY_COUNTRY=$(iw reg get 2>/dev/null | awk '/^phy#/ {found=1} found && /country [A-Z0-9]{2}/ {print $2; exit}')
+            FIVE_GHZ_RULES=$(iw reg get 2>/dev/null | awk '/5[0-9]{3} - [0-9]{3} MHz/{print $0}')
+
+            if [ "$SELF_MANAGED" -gt 0 ]; then
+                echo ""
+                echo "WARNING: phy is self-managed - regulatory domain is locked in firmware."
+                echo "         iw reg set has no effect on this hardware."
+                if [ -n "$PHY_COUNTRY" ]; then
+                    echo "         country: $PHY_COUNTRY"
+                fi
+                echo "         allowed 5 GHz range:"
+                if [ -n "$FIVE_GHZ_RULES" ]; then
+                    echo "$FIVE_GHZ_RULES" | while IFS= read -r rule; do
+                        echo "           $rule"
+                    done
+                fi
+                echo "         Android hotspots on 5 GHz channels outside this range will be invisible."
+                echo "         Workarounds: set Android hotspot to 2.4 GHz, or use USB tethering."
+            fi
+        fi
+
+        echo "regdom (script default): $REGDOM"
+        nmcli radio wifi 2>/dev/null || true
+        nmcli -t -f SSID,FREQ,SECURITY device wifi list 2>/dev/null | grep -E ':5[0-9]{3} MHz:' || echo "(no 5 GHz SSIDs in scan)"
+        ;;
+    *)
+        echo "usage: $0 {fix|watch|status}"
+        exit 2
+        ;;
+esac
