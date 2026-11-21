@@ -1,10 +1,10 @@
 
 # dirs
-/vendor/
-/php_packages/
-/node_modules/
+vendor
+php_packages
+node_modules
 
-/__pycache__/
+__pycache__
 
 # files
 /.agents/sessions.txt
