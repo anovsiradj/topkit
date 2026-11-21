@@ -1,26 +1,29 @@
 #!/bin/sh
 #
 # ath11k-5ghz-fix
-# Fix intermittent "5 GHz not detected" on Qualcomm QCNFA765 / ath11k_pci.
+# Fix intermittent "5 GHz not detected" on Qualcomm QCNFA765 (WCN6855)
+# with ath11k_pci driver on Debian.
 #
-# The QCNFA765 (WCN6855) firmware/driver periodically drops the 5 GHz band
-# (regulatory domain goes unset / power-save glitch), so 5 GHz SSIDs vanish
-# from nmcli scans until you toggle the hotspot or reboot.
+# The QCNFA765 uses a self-managed regulatory domain controlled by firmware.
+# The domain changes dynamically via 802.11d beacon country codes:
+#   - country US: full 5 GHz (ch 36-165) + 6 GHz visible
+#   - country ID: only 5 GHz ch 149-161 visible (ch 36-144 blocked)
 #
 # This script:
-#   1. Checks whether any 5 GHz SSID is visible.
+#   1. Checks whether any 5 GHz SSID is visible via nmcli.
 #   2. If none, reloads the ath11k_pci driver and restarts NetworkManager.
-#   3. Sets a 5 GHz-friendly regulatory domain and disables Wi-Fi power save.
+#   3. Disables Wi-Fi power save so the radio stays awake on 5 GHz.
+#   4. (status mode) Reports the actual allowed 5 GHz range from iw reg get.
 #
 # usage:
-#   chmod +x device/ath11k-5ghz-fix/ath11k-5ghz-fix
-#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix        # one-shot fix
-#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix --watch # loop until 5 GHz returns
-#   sudo ./device/ath11k-5ghz-fix/ath11k-5ghz-fix status   # show current state
+#   chmod +x devices/ath11k-5ghz-fix/ath11k-5ghz-fix
+#   sudo ./devices/ath11k-5ghz-fix/ath11k-5ghz-fix        # one-shot fix
+#   sudo ./devices/ath11k-5ghz-fix/ath11k-5ghz-fix --watch # loop until 5 GHz returns
+#   sudo ./devices/ath11k-5ghz-fix/ath11k-5ghz-fix status   # show current state
 #
 # optional systemd timer (run every 5 min):
-#   cp device/ath11k-5ghz-fix/ath11k-5ghz-fix.service /etc/systemd/system/
-#   cp device/ath11k-5ghz-fix/ath11k-5ghz-fix.timer /etc/systemd/system/
+#   cp devices/ath11k-5ghz-fix/ath11k-5ghz-fix.service /etc/systemd/system/
+#   cp devices/ath11k-5ghz-fix/ath11k-5ghz-fix.timer /etc/systemd/system/
 #   systemctl enable --now ath11k-5ghz-fix.timer
 
 set -u
@@ -122,10 +125,11 @@ case "${1:-fix}" in
 
             if [ "$SELF_MANAGED" -gt 0 ]; then
                 echo ""
-                echo "WARNING: phy is self-managed - regulatory domain is locked in firmware."
+                echo "WARNING: phy is self-managed - regulatory domain is controlled by firmware."
                 echo "         iw reg set has no effect on this hardware."
+                echo "         Domain can change dynamically via 802.11d beacon country codes."
                 if [ -n "$PHY_COUNTRY" ]; then
-                    echo "         country: $PHY_COUNTRY"
+                    echo "         current country: $PHY_COUNTRY"
                 fi
                 echo "         allowed 5 GHz range:"
                 if [ -n "$FIVE_GHZ_RULES" ]; then
@@ -133,8 +137,18 @@ case "${1:-fix}" in
                         echo "           $rule"
                     done
                 fi
-                echo "         Android hotspots on 5 GHz channels outside this range will be invisible."
-                echo "         Workarounds: set Android hotspot to 2.4 GHz, or use USB tethering."
+                if echo "$PHY_COUNTRY" | grep -qE "^ID$"; then
+                    echo "         -> Only 5 GHz channels 149-161 are visible."
+                    echo "         -> Android hotspots on channels 36-144 will be INVISIBLE."
+                    echo "         -> Fix: set Android hotspot to 2.4 GHz, USB tethering,"
+                    echo "            or 5 GHz channels 149-161 if your phone allows it."
+                elif echo "$PHY_COUNTRY" | grep -qE "^US$"; then
+                    echo "         -> Full 5 GHz channels 36-165 + 6 GHz are visible."
+                    echo "         -> Your Android hotspot should be visible on any 5 GHz channel."
+                else
+                    echo "         -> Android hotspots on 5 GHz channels outside this range will be invisible."
+                    echo "         -> Workarounds: set Android hotspot to 2.4 GHz, or use USB tethering."
+                fi
             fi
         fi
 
