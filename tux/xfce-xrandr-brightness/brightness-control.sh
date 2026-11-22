@@ -3,7 +3,7 @@
 # brightness-control.sh
 # Screen brightness control for the HP EliteBook 845 G8 (Debian 13 / XFCE 4.20).
 #
-# WHY THIS IS NEEDD
+# WHY THIS IS NEEDED
 # -----------------
 # The kernel exposes backlight devices under /sys/class/backlight:
 #   - acpi_video0  (when acpi_backlight=video)   -> values change, panel ignores them
@@ -145,10 +145,14 @@ set_brightness() {
 # ------------------------------------------------------------------
 case "${1:-}" in
     up)
-        set_brightness $(( $(get_brightness) + STEP ))
+        current="$(get_brightness)"
+        [ -z "$current" ] && current=100
+        set_brightness $(( current + STEP ))
         ;;
     down)
-        set_brightness $(( $(get_brightness) - STEP ))
+        current="$(get_brightness)"
+        [ -z "$current" ] && current=100
+        set_brightness $(( current - STEP ))
         ;;
     set)
         set_brightness "${2:-100}"

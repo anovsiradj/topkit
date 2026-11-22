@@ -235,14 +235,11 @@ class BrightnessWindow(Gtk.Window):
         _, height = self.get_size()
 
         # Percentage-based margins relative to screen dimensions
-        bottom_pct = 0.02   # 2% of screen height
-        side_pct = 0.02     # 2% of screen width
-
-        bottom_margin = int(geometry.height * bottom_pct)
-        side_margin = int(geometry.width * side_pct)
+        bottom_margin = int(geometry.height * SLIDER_BOTTOM_PCT)
+        side_margin = int(geometry.width * SLIDER_SIDE_PCT)
 
         # Center horizontally, respecting side margin
-        x = geometry.x + max(side_margin, (geometry.width - 320) // 2)
+        x = geometry.x + max(side_margin, (geometry.width - WINDOW_WIDTH) // 2)
         y = geometry.y + geometry.height - height - bottom_margin
 
         self.move(x, y)
