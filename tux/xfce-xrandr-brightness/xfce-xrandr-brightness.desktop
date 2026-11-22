@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Brightness
+Comment=Adjust the screen brightness
+Exec=__SCRIPT__ slider
+Icon=display-brightness-symbolic
+Terminal=false
+Categories=Utility;
+NoDisplay=false

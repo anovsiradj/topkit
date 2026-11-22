@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Brightness restore
+Comment=Restore the last used screen brightness
+Exec=__SCRIPT__ restore
+Icon=display-brightness-symbolic
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
